@@ -19,6 +19,12 @@ const DEFAULT_SETTINGS = {
   industry:     'General',
 }
 
+// Keep Render backend alive — ping every 4 minutes
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+setInterval(() => {
+  fetch(`${API_URL}/health`).catch(() => {})
+}, 4 * 60 * 1000)
+
 const TabFallback = () => (
   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', minHeight: 300 }}>
     <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.06)', borderTop: '2px solid #8b5cf6', animation: 'spin 0.8s linear infinite' }} />
@@ -72,6 +78,8 @@ export default function App() {
           recommendations:    report.narratives.recommendations,
         },
         report.health,
+        report.charts,
+        report.forecast,
       )
       const url = URL.createObjectURL(blob)
       const a   = document.createElement('a')

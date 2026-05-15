@@ -35,7 +35,9 @@ export async function generatePDF(
   apiKey: string,
   settings: Record<string, string>,
   narratives: Record<string, string>,
-  health: { score: number; grade: string }
+  health: { score: number; grade: string },
+  charts?: any[],
+  forecast?: any
 ): Promise<Blob> {
   const fd = new FormData()
   fd.append('file', file)
@@ -44,6 +46,8 @@ export async function generatePDF(
   Object.entries(narratives).forEach(([k, v]) => fd.append(k, v))
   fd.append('health_score', String(health.score))
   fd.append('health_grade', health.grade)
+  fd.append('charts_json', JSON.stringify(charts || []))
+  fd.append('forecast_json', JSON.stringify(forecast || null))
 
   const r = await fetch(`${API}/api/pdf`, { method: 'POST', body: fd })
   if (!r.ok) throw new Error('PDF generation failed')
