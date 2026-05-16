@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
 import TopNav from './components/TopNav'
 import HeroScreen from './components/HeroScreen'
@@ -25,6 +25,9 @@ setInterval(() => {
   fetch(`${API_URL}/health`).catch(() => {})
 }, 4 * 60 * 1000)
 
+// Warmup call on page load — wakes up Render free tier immediately
+fetch(`${API_URL}/api/warmup`).catch(() => {})
+
 const TabFallback = () => (
   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', minHeight: 300 }}>
     <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.06)', borderTop: '2px solid #8b5cf6', animation: 'spin 0.8s linear infinite' }} />
@@ -40,10 +43,30 @@ export default function App() {
   const [loading,    setLoading]    = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [error,      setError]      = useState('')
+  const [backendStatus, setBackendStatus] = useState<'checking'|'online'|'waking'>('checking')
 
   function mergeSettings(patch: Partial<typeof DEFAULT_SETTINGS>) {
     setSettings(s => ({ ...s, ...patch }))
   }
+
+  // Check backend status on mount — handles Render free tier cold start
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const r = await fetch(`${API_URL}/api/warmup`, { signal: AbortSignal.timeout(8000) })
+        if (r.ok) { setBackendStatus('online'); return }
+      } catch {}
+      // If warmup failed, backend is waking — show warning and retry
+      setBackendStatus('waking')
+      setTimeout(async () => {
+        try {
+          const r2 = await fetch(`${API_URL}/api/warmup`, { signal: AbortSignal.timeout(60000) })
+          if (r2.ok) setBackendStatus('online')
+        } catch {}
+      }, 3000)
+    }
+    check()
+  }, [])
 
   async function handleGenerate() {
     if (!file || !apiKey) return
@@ -155,7 +178,7 @@ export default function App() {
           </div>
         )}
 
-        {!loading && !report && !error && <HeroScreen />}
+        {!loading && !report && !error && <HeroScreen backendStatus={backendStatus} />}
 
         {!loading && report && (
           <Suspense fallback={<TabFallback />}>
