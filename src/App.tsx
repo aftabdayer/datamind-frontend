@@ -73,13 +73,21 @@ export default function App() {
     setLoading(true)
     setError('')
     setReport(null)
+    // Abort controller — auto-cancel after 3 minutes
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 180000)
     try {
       const data = await analyseDataset(file, apiKey, settings)
       setReport(data)
       setActiveTab('overview')
     } catch (e: any) {
-      setError(e.message || 'Analysis failed. Check your API key and file.')
+      if (e?.name === 'AbortError') {
+        setError('Request timed out. The backend may be waking up — please try again in 30 seconds.')
+      } else {
+        setError(e.message || 'Analysis failed. Check your API key and try again.')
+      }
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }
@@ -110,8 +118,11 @@ export default function App() {
       a.download = `${settings.reportTitle}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      alert('PDF generation failed. Please try again.')
+    } catch (e: any) {
+      const msg = e?.message || 'Unknown error'
+      alert(`PDF generation failed: ${msg}
+
+Tip: Make sure the backend is fully awake — try generating the report again first, then download PDF.`)
     } finally {
       setPdfLoading(false)
     }

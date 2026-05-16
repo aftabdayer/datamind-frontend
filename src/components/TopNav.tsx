@@ -36,7 +36,7 @@ export default function TopNav({ organisation, analyst, activeTab }: Props) {
         {TAB_LABELS[activeTab] || 'DataMind AI'}
       </h1>
 
-      {/* Pills */}
+      {/* Org + Analyst pills */}
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         {[organisation, analyst].map(label => (
           <span key={label} style={{
@@ -48,33 +48,53 @@ export default function TopNav({ organisation, analyst, activeTab }: Props) {
         ))}
       </div>
 
-      {/* Search */}
+      {/* Search — decorative UI element */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '0.5rem',
         background: '#18181f', border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 8, padding: '0.35rem 0.75rem',
+        opacity: 0.5,
+        title: 'Search coming soon',
       }}>
         <span style={{ color: '#475569', fontSize: '0.85rem' }}>⊕</span>
         <input
           placeholder="Search insights..."
+          disabled
           style={{
             background: 'none', border: 'none', outline: 'none',
             color: '#94a3b8', fontSize: '0.8rem', width: 140,
             fontFamily: 'Instrument Sans,sans-serif',
+            cursor: 'not-allowed',
           }}
         />
       </div>
 
-      {/* Icons */}
-      <div style={{ display: 'flex', gap: '0.75rem', color: '#475569', fontSize: '1.1rem' }}>
-        <span style={{ cursor: 'pointer' }}>🔔</span>
-        <span style={{ cursor: 'pointer' }}>⚙</span>
-        <div style={{
-          width: 28, height: 28, borderRadius: '50%',
+      {/* Right icons — decorative, match the Stitch design */}
+      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        {/* Notifications — decorative */}
+        <div title="Notifications (coming soon)" style={{
+          width: 32, height: 32, borderRadius: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#475569', fontSize: '1rem', cursor: 'default',
+          transition: 'background 0.15s',
+        }}>🔔</div>
+
+        {/* Settings — decorative */}
+        <div title="Settings (coming soon)" style={{
+          width: 32, height: 32, borderRadius: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#475569', fontSize: '1rem', cursor: 'default',
+        }}>⚙</div>
+
+        {/* Avatar — shows first letter of analyst */}
+        <div title={analyst} style={{
+          width: 30, height: 30, borderRadius: '50%',
           background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '0.75rem', color: 'white', fontWeight: 700, cursor: 'pointer',
-        }}>A</div>
+          fontSize: '0.75rem', color: 'white', fontWeight: 700,
+          cursor: 'default', flexShrink: 0,
+          boxShadow: '0 2px 8px rgba(124,58,237,0.35)',
+        }}>{analyst.charAt(0).toUpperCase()}</div>
       </div>
     </header>
   )
