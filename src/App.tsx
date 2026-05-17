@@ -2,7 +2,8 @@ import { useState, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
 import TopNav from './components/TopNav'
 import HeroScreen from './components/HeroScreen'
-import { analyseDataset, generatePDF } from './lib/api'
+import { analyseDataset } from './lib/api'
+import { generateBrowserPdf } from './components/BrowserPdf'
 
 const OverviewTab         = lazy(() => import('./components/OverviewTab'))
 const VisualsTab          = lazy(() => import('./components/VisualsTab'))
@@ -62,53 +63,11 @@ export default function App() {
   }
 
   async function handleDownloadPdf() {
-    if (!file || !report) return
+    if (!report) return
     setPdfLoading(true)
     try {
-      // Capture charts as PNG images in the browser using Plotly.toImage
-      let chartImages: string[] = []
-      let forecastImage: string = ''
-      try {
-        const Plotly = (window as any).Plotly
-        if (Plotly && report.charts?.length) {
-          chartImages = await Promise.all(
-            report.charts.slice(0, 6).map((c: any) =>
-              Plotly.toImage({ data: c.data, layout: { ...c.layout, width: 700, height: 350, paper_bgcolor: 'white', plot_bgcolor: 'white', font: { color: '#1e293b' } } }, { format: 'png', width: 700, height: 350 })
-                .catch(() => '')
-            )
-          )
-        }
-        if (Plotly && report.forecast) {
-          forecastImage = await Plotly.toImage(
-            { data: report.forecast.data, layout: { ...report.forecast.layout, width: 700, height: 300, paper_bgcolor: 'white', plot_bgcolor: 'white', font: { color: '#1e293b' } } },
-            { format: 'png', width: 700, height: 300 }
-          ).catch(() => '')
-        }
-      } catch { /* charts optional */ }
-
-      const blob = await generatePDF(
-        file, apiKey,
-        {
-          report_title: settings.reportTitle, organisation: settings.organisation,
-          analyst: settings.analyst, tone: settings.tone, industry: settings.industry,
-        },
-        {
-          exec_summary:       report.narratives.exec_summary,
-          key_findings:       report.narratives.key_findings,
-          anomaly_narrative:  report.narratives.anomaly_narrative,
-          recommendations:    report.narratives.recommendations,
-        },
-        report.health,
-        chartImages,
-        forecastImage,
-      )
-      const url = URL.createObjectURL(blob)
-      const a   = document.createElement('a')
-      a.href    = url
-      a.download = `${settings.reportTitle}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch {
+      await generateBrowserPdf(report, settings)
+    } catch (e) {
       alert('PDF generation failed. Please try again.')
     } finally {
       setPdfLoading(false)
