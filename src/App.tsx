@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
 import TopNav from './components/TopNav'
 import HeroScreen from './components/HeroScreen'
-import { analyseDataset, generatePDF } from './lib/api'
+import { analyseDataset } from './lib/api'
+import { generatePDFInBrowser } from './components/PdfGenerator'
 
 const OverviewTab         = lazy(() => import('./components/OverviewTab'))
 const VisualsTab          = lazy(() => import('./components/VisualsTab'))
@@ -123,25 +124,26 @@ export default function App() {
     }
   }
 
-  async function handleDownloadPdf() {
-    if (!file || !report) return
+  function handleDownloadPdf() {
+    if (!report) return
     setPdfLoading(true)
     try {
-      const blob = await generatePDF(
-        file, apiKey,
-        { report_title: settings.reportTitle, organisation: settings.organisation, analyst: settings.analyst, tone: settings.tone, industry: settings.industry },
-        { exec_summary: report.narratives.exec_summary, key_findings: report.narratives.key_findings, anomaly_narrative: report.narratives.anomaly_narrative, recommendations: report.narratives.recommendations },
-        report.health, report.charts, report.forecast,
-        report.stats, report.anomalies, report.meta,
-      )
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${settings.reportTitle}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      generatePDFInBrowser({
+        meta: report.meta,
+        health: report.health,
+        stats: report.stats,
+        anomalies: report.anomalies,
+        narratives: report.narratives,
+        settings: {
+          reportTitle:  settings.reportTitle,
+          organisation: settings.organisation,
+          analyst:      settings.analyst,
+          tone:         settings.tone,
+          industry:     settings.industry,
+        },
+      })
     } catch (e: any) {
-      alert(`PDF generation failed.\n\nPlease wait a moment and try again — the server may have timed out.`)
+      alert('PDF generation failed: ' + (e?.message || 'Unknown error'))
     } finally {
       setPdfLoading(false)
     }
