@@ -9,9 +9,7 @@ const FEATURES = [
   { icon: '⬇', label: 'PDF Download' },
 ]
 
-interface Props { backendStatus?: 'checking' | 'online' | 'waking' }
-
-export default function HeroScreen({ backendStatus = 'checking' }: Props) {
+export default function HeroScreen() {
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
