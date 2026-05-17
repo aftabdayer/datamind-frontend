@@ -49,12 +49,11 @@ export default function TopNav({ organisation, analyst, activeTab }: Props) {
       </div>
 
       {/* Search — decorative UI element */}
-      <div style={{
+      <div title="Search coming soon" style={{
         display: 'flex', alignItems: 'center', gap: '0.5rem',
         background: '#18181f', border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 8, padding: '0.35rem 0.75rem',
         opacity: 0.5,
-        title: 'Search coming soon',
       }}>
         <span style={{ color: '#475569', fontSize: '0.85rem' }}>⊕</span>
         <input
