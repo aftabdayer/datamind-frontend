@@ -50,7 +50,7 @@ export default function App() {
 
     async function tryWarmup() {
       try {
-        const r = await fetch(`${API_URL}/api/warmup`, { signal: AbortSignal.timeout(5000) })
+        const r = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(5000) })
         if (r.ok) {
           setBackendStatus('online')
           clearInterval(wakeTimer.current)
