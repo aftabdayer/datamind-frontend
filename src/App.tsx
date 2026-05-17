@@ -209,7 +209,7 @@ export default function App() {
           </div>
         )}
 
-        {!loading && !report && !error && <HeroScreen backendStatus={backendStatus} />}
+        {!loading && !report && !error && <HeroScreen backendStatus={backendStatus === 'failed' ? 'waking' : backendStatus} />}
 
         {!loading && report && (
           <Suspense fallback={<TabFallback />}>
