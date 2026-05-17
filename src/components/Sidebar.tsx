@@ -25,11 +25,12 @@ interface Props {
   onGenerate:    () => void
   loading:       boolean
   hasReport:     boolean
+  backendReady:  boolean
 }
 
 export default function Sidebar({
   activeTab, onTabChange, apiKey, onApiKey,
-  file, onFile, settings, onSettings, onGenerate, loading, hasReport,
+  file, onFile, settings, onSettings, onGenerate, loading, hasReport, backendReady,
 }: Props) {
   const [showKey, setShowKey] = useState(false)
 
@@ -183,10 +184,12 @@ export default function Sidebar({
         <button
           className="btn-primary"
           onClick={onGenerate}
-          disabled={!file || !apiKey || loading}
-          style={{ width: '100%', marginTop: '0.25rem' }}
+          disabled={!file || !apiKey || loading || !backendReady}
+          style={{ width: '100%', marginTop: '0.25rem', opacity: !backendReady ? 0.5 : 1 }}
         >
-          {loading ? '⟳  Analysing...' : '🚀  Generate Report'}
+          {loading ? '⟳  Analysing...'
+            : !backendReady ? '⏳  Server Waking Up...'
+            : '🚀  Generate Report'}
         </button>
 
       </div>

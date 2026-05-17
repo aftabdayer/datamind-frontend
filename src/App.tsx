@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
 import TopNav from './components/TopNav'
 import HeroScreen from './components/HeroScreen'
@@ -19,14 +19,7 @@ const DEFAULT_SETTINGS = {
   industry:     'General',
 }
 
-// Keep Render backend alive — ping every 4 minutes
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-setInterval(() => {
-  fetch(`${API_URL}/health`).catch(() => {})
-}, 4 * 60 * 1000)
-
-// Warmup call on page load — wakes up Render free tier immediately
-fetch(`${API_URL}/api/warmup`).catch(() => {})
 
 const TabFallback = () => (
   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', minHeight: 300 }}>
@@ -34,46 +27,84 @@ const TabFallback = () => (
   </div>
 )
 
+type BackendStatus = 'checking' | 'waking' | 'online' | 'failed'
+
 export default function App() {
-  const [activeTab,  setActiveTab]  = useState('overview')
-  const [apiKey,     setApiKey]     = useState('')
-  const [file,       setFile]       = useState<File | null>(null)
-  const [settings,   setSettings]   = useState(DEFAULT_SETTINGS)
-  const [report,     setReport]     = useState<any>(null)
-  const [loading,    setLoading]    = useState(false)
-  const [pdfLoading, setPdfLoading] = useState(false)
-  const [error,      setError]      = useState('')
-  const [backendStatus, setBackendStatus] = useState<'checking'|'online'|'waking'>('checking')
+  const [activeTab,     setActiveTab]     = useState('overview')
+  const [apiKey,        setApiKey]        = useState('')
+  const [file,          setFile]          = useState<File | null>(null)
+  const [settings,      setSettings]      = useState(DEFAULT_SETTINGS)
+  const [report,        setReport]        = useState<any>(null)
+  const [loading,       setLoading]       = useState(false)
+  const [pdfLoading,    setPdfLoading]    = useState(false)
+  const [error,         setError]         = useState('')
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
+  const [wakeSeconds,   setWakeSeconds]   = useState(0)
+  const wakeTimer  = useRef<any>(null)
+  const tickTimer  = useRef<any>(null)
+  const keepAlive  = useRef<any>(null)
+
+  useEffect(() => {
+    let attempts = 0
+
+    async function tryWarmup() {
+      try {
+        const r = await fetch(`${API_URL}/api/warmup`, { signal: AbortSignal.timeout(5000) })
+        if (r.ok) {
+          setBackendStatus('online')
+          clearInterval(wakeTimer.current)
+          clearInterval(tickTimer.current)
+          return true
+        }
+      } catch {}
+      return false
+    }
+
+    async function startWarmup() {
+      const ok = await tryWarmup()
+      if (ok) return
+
+      setBackendStatus('waking')
+      setWakeSeconds(0)
+      tickTimer.current = setInterval(() => setWakeSeconds(s => s + 1), 1000)
+
+      wakeTimer.current = setInterval(async () => {
+        attempts++
+        const ok2 = await tryWarmup()
+        if (ok2 || attempts >= 10) {
+          clearInterval(wakeTimer.current)
+          clearInterval(tickTimer.current)
+          if (!ok2) setBackendStatus('failed')
+        }
+      }, 6000)
+    }
+
+    startWarmup()
+
+    keepAlive.current = setInterval(() => {
+      fetch(`${API_URL}/health`).catch(() => {})
+    }, 4 * 60 * 1000)
+
+    return () => {
+      clearInterval(wakeTimer.current)
+      clearInterval(tickTimer.current)
+      clearInterval(keepAlive.current)
+    }
+  }, [])
 
   function mergeSettings(patch: Partial<typeof DEFAULT_SETTINGS>) {
     setSettings(s => ({ ...s, ...patch }))
   }
 
-  // Check backend status on mount — handles Render free tier cold start
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const r = await fetch(`${API_URL}/api/warmup`, { signal: AbortSignal.timeout(8000) })
-        if (r.ok) { setBackendStatus('online'); return }
-      } catch {}
-      // If warmup failed, backend is waking — show warning and retry
-      setBackendStatus('waking')
-      setTimeout(async () => {
-        try {
-          const r2 = await fetch(`${API_URL}/api/warmup`, { signal: AbortSignal.timeout(60000) })
-          if (r2.ok) setBackendStatus('online')
-        } catch {}
-      }, 3000)
-    }
-    check()
-  }, [])
-
   async function handleGenerate() {
     if (!file || !apiKey) return
+    if (backendStatus !== 'online') {
+      setError('Server is still waking up — please wait for the status bar to disappear, then try again.')
+      return
+    }
     setLoading(true)
     setError('')
     setReport(null)
-    // Abort controller — auto-cancel after 3 minutes
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 180000)
     try {
@@ -82,7 +113,7 @@ export default function App() {
       setActiveTab('overview')
     } catch (e: any) {
       if (e?.name === 'AbortError') {
-        setError('Request timed out. The backend may be waking up — please try again in 30 seconds.')
+        setError('Request timed out. Please try again.')
       } else {
         setError(e.message || 'Analysis failed. Check your API key and try again.')
       }
@@ -98,77 +129,69 @@ export default function App() {
     try {
       const blob = await generatePDF(
         file, apiKey,
-        {
-          report_title: settings.reportTitle, organisation: settings.organisation,
-          analyst: settings.analyst, tone: settings.tone, industry: settings.industry,
-        },
-        {
-          exec_summary:       report.narratives.exec_summary,
-          key_findings:       report.narratives.key_findings,
-          anomaly_narrative:  report.narratives.anomaly_narrative,
-          recommendations:    report.narratives.recommendations,
-        },
-        report.health,
-        report.charts,
-        report.forecast,
+        { report_title: settings.reportTitle, organisation: settings.organisation, analyst: settings.analyst, tone: settings.tone, industry: settings.industry },
+        { exec_summary: report.narratives.exec_summary, key_findings: report.narratives.key_findings, anomaly_narrative: report.narratives.anomaly_narrative, recommendations: report.narratives.recommendations },
+        report.health, report.charts, report.forecast,
       )
       const url = URL.createObjectURL(blob)
-      const a   = document.createElement('a')
-      a.href    = url
+      const a = document.createElement('a')
+      a.href = url
       a.download = `${settings.reportTitle}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e: any) {
-      const msg = e?.message || 'Unknown error'
-      alert(`PDF generation failed: ${msg}
-
-Tip: Make sure the backend is fully awake — try generating the report again first, then download PDF.`)
+      alert(`PDF generation failed.\n\nPlease wait a moment and try again — the server may have timed out.`)
     } finally {
       setPdfLoading(false)
     }
   }
 
   const datasetContext = report
-    ? `File: ${report.meta.filename} | Rows: ${report.meta.rows} | Cols: ${report.meta.cols} | ` +
-      `Health: ${report.health.grade} (${report.health.score}/100) | ` +
-      `Numeric cols: ${Object.keys(report.stats.key_stats || {}).join(', ')} | ` +
-      `Anomalies: ${JSON.stringify(report.anomalies).slice(0, 400)}`
+    ? `File: ${report.meta.filename} | Rows: ${report.meta.rows} | Cols: ${report.meta.cols} | Health: ${report.health.grade} (${report.health.score}/100) | Numeric cols: ${Object.keys(report.stats.key_stats || {}).join(', ')} | Anomalies: ${JSON.stringify(report.anomalies).slice(0, 400)}`
     : ''
+
+  const StatusBanner = () => {
+    if (backendStatus === 'online') return null
+    if (backendStatus === 'failed') return (
+      <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '0.75rem 1.25rem', margin: '1rem 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.85rem', color: '#f87171' }}>
+        <span>⚠</span> Backend unreachable. Please refresh the page.
+        <button onClick={() => window.location.reload()} style={{ marginLeft: 'auto', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: 6, padding: '0.25rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem' }}>Refresh</button>
+      </div>
+    )
+    return (
+      <div style={{ background: backendStatus === 'waking' ? 'rgba(245,158,11,0.06)' : 'rgba(59,130,246,0.06)', border: `1px solid ${backendStatus === 'waking' ? 'rgba(245,158,11,0.22)' : 'rgba(59,130,246,0.18)'}`, borderRadius: 10, padding: '0.75rem 1.25rem', margin: '1rem 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.85rem', color: backendStatus === 'waking' ? '#fbbf24' : '#60a5fa' }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: backendStatus === 'waking' ? '#f59e0b' : '#3b82f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        {backendStatus === 'waking'
+          ? `⚡ Server waking up... ${wakeSeconds}s — Do not click Generate yet. This takes ~30 seconds.`
+          : '⟳ Connecting to server...'}
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0d0d12' }}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
 
       <Sidebar
-        activeTab={activeTab}    onTabChange={setActiveTab}
-        apiKey={apiKey}          onApiKey={setApiKey}
-        file={file}              onFile={setFile}
-        settings={settings}      onSettings={mergeSettings}
+        activeTab={activeTab}   onTabChange={setActiveTab}
+        apiKey={apiKey}         onApiKey={setApiKey}
+        file={file}             onFile={setFile}
+        settings={settings}     onSettings={mergeSettings}
         onGenerate={handleGenerate}
         loading={loading}
         hasReport={!!report}
+        backendReady={backendStatus === 'online'}
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowX: 'hidden' }}>
 
-        {report && (
-          <TopNav
-            organisation={settings.organisation}
-            analyst={settings.analyst}
-            activeTab={activeTab}
-          />
-        )}
+        {report && <TopNav organisation={settings.organisation} analyst={settings.analyst} activeTab={activeTab} />}
+
+        {!report && !loading && <StatusBanner />}
 
         {loading && (
-          <div style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '1.5rem', minHeight: '100vh',
-          }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%',
-              border: '3px solid rgba(255,255,255,0.06)',
-              borderTop: '3px solid #8b5cf6',
-              animation: 'spin 0.8s linear infinite',
-            }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', minHeight: '100vh' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.06)', borderTop: '3px solid #8b5cf6', animation: 'spin 0.8s linear infinite' }} />
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '1.1rem', color: '#f0f0f5', margin: '0 0 0.35rem' }}>Analysing your dataset</p>
               <p style={{ fontSize: '0.85rem', color: '#475569' }}>Running AI analysis, building charts, detecting anomalies...</p>
@@ -178,13 +201,10 @@ Tip: Make sure the backend is fully awake — try generating the report again fi
 
         {!loading && error && (
           <div style={{ padding: '1.5rem' }}>
-            <div style={{
-              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-              borderRadius: 12, padding: '1rem 1.25rem',
-              display: 'flex', alignItems: 'center', gap: '0.75rem',
-            }}>
-              <span style={{ fontSize: '1.1rem' }}>⚠</span>
+            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 12, padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span>⚠</span>
               <p style={{ color: '#f87171', fontSize: '0.9rem', margin: 0 }}>{error}</p>
+              <button onClick={() => setError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
             </div>
           </div>
         )}
@@ -203,16 +223,11 @@ Tip: Make sure the backend is fully awake — try generating the report again fi
         )}
 
         {report && (
-          <footer style={{
-            textAlign: 'center', padding: '1.5rem',
-            borderTop: '1px solid rgba(255,255,255,0.05)',
-            color: '#334155', fontSize: '0.72rem', letterSpacing: '0.3px', marginTop: 'auto',
-          }}>
+          <footer style={{ textAlign: 'center', padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', color: '#334155', fontSize: '0.72rem', letterSpacing: '0.3px', marginTop: 'auto' }}>
             © {new Date().getFullYear()} DataMind AI. All rights reserved.
-            &nbsp; · &nbsp; <a href="#" style={{ color: '#334155', textDecoration: 'none' }}>Privacy Protocol</a>
-            &nbsp; · &nbsp; <a href="#" style={{ color: '#334155', textDecoration: 'none' }}>Terms of Logic</a>
-            &nbsp; &nbsp; &nbsp;
-            <span style={{ color: '#10b981' }}>●</span> System Operational: v2.0.0
+            &nbsp;·&nbsp;<a href="#" style={{ color: '#334155', textDecoration: 'none' }}>Privacy Protocol</a>
+            &nbsp;·&nbsp;<a href="#" style={{ color: '#334155', textDecoration: 'none' }}>Terms of Logic</a>
+            &nbsp;&nbsp;&nbsp;<span style={{ color: '#10b981' }}>●</span> System Operational: v2.0.0
           </footer>
         )}
       </div>
