@@ -132,6 +132,7 @@ export default function App() {
         { report_title: settings.reportTitle, organisation: settings.organisation, analyst: settings.analyst, tone: settings.tone, industry: settings.industry },
         { exec_summary: report.narratives.exec_summary, key_findings: report.narratives.key_findings, anomaly_narrative: report.narratives.anomaly_narrative, recommendations: report.narratives.recommendations },
         report.health, report.charts, report.forecast,
+        report.stats, report.anomalies, report.meta,
       )
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')

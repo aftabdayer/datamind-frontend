@@ -1,13 +1,5 @@
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-export async function validateKey(apiKey: string): Promise<boolean> {
-  const fd = new FormData()
-  fd.append('api_key', apiKey)
-  const r = await fetch(`${API}/api/validate-key`, { method: 'POST', body: fd })
-  const d = await r.json()
-  return d.valid === true
-}
-
 export async function analyseDataset(
   file: File,
   apiKey: string,
@@ -30,6 +22,7 @@ export async function analyseDataset(
   return r.json()
 }
 
+// PDF now sends pre-computed JSON data — no file re-upload, no timeout
 export async function generatePDF(
   file: File,
   apiKey: string,
@@ -37,20 +30,38 @@ export async function generatePDF(
   narratives: Record<string, string>,
   health: { score: number; grade: string },
   charts?: any[],
-  forecast?: any
+  forecast?: any,
+  stats?: any,
+  anomalies?: any,
+  meta?: any
 ): Promise<Blob> {
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('api_key', apiKey)
-  Object.entries(settings).forEach(([k, v]) => fd.append(k, v))
-  Object.entries(narratives).forEach(([k, v]) => fd.append(k, v))
-  fd.append('health_score', String(health.score))
-  fd.append('health_grade', health.grade)
-  fd.append('charts_json', JSON.stringify(charts || []))
-  fd.append('forecast_json', JSON.stringify(forecast || null))
+  const payload = {
+    report_title:      settings.report_title      || 'Business Intelligence Report',
+    organisation:      settings.organisation       || 'My Organisation',
+    analyst:           settings.analyst            || 'DataMind AI',
+    tone:              settings.tone               || 'Professional',
+    industry:          settings.industry           || 'General',
+    filename:          file.name,
+    exec_summary:      narratives.exec_summary     || '',
+    key_findings:      narratives.key_findings     || '',
+    anomaly_narrative: narratives.anomaly_narrative || '',
+    recommendations:   narratives.recommendations  || '',
+    health_score:      health.score,
+    health_grade:      health.grade,
+    stats_json:        JSON.stringify(stats     || {}),
+    anomalies_json:    JSON.stringify(anomalies || {}),
+    meta_json:         JSON.stringify(meta      || {}),
+  }
 
-  const r = await fetch(`${API}/api/pdf`, { method: 'POST', body: fd })
-  if (!r.ok) throw new Error('PDF generation failed')
+  const r = await fetch(`${API}/api/pdf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ detail: 'PDF generation failed' }))
+    throw new Error(err.detail || 'PDF generation failed')
+  }
   return r.blob()
 }
 
