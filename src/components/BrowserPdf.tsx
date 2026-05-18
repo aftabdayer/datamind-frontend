@@ -244,7 +244,7 @@ body{font-family:'Inter',sans-serif;color:#1e293b;background:#fff;line-height:1.
 .rh{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1.5px solid #e2e8f0;margin-bottom:32px}
 .rh-l{font-size:7.5pt;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:1.5px}
 .rh-r{font-size:7.5pt;color:#94a3b8}
-.rf{margin-top:52px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center}
+.rf{margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center}
 .rf-logo{font-family:'Syne',sans-serif;font-weight:700;font-size:9pt;color:#7c3aed}
 .rf-txt{font-size:7pt;color:#94a3b8}
 
@@ -340,14 +340,14 @@ ${RH()}
     <tr><td class="mono center">06</td><td><strong>Actionable Recommendations</strong></td><td>Strategic actions based on the AI analysis</td></tr>
   </tbody>
 </table>
-<div class="rf"><div class="rf-logo">◈ DataMind AI</div><div class="rf-txt">© ${new Date().getFullYear()} DataMind AI &nbsp;·&nbsp; ${esc(settings.organisation)} &nbsp;·&nbsp; Confidential</div></div>
+
 
 <!-- S01 EXEC SUMMARY -->
 <div class="pb"></div>
 ${RH()}
 ${SEC('01','Executive Summary')}
 <div class="eq">${mdToHtml(report.narratives?.exec_summary||'')}</div>
-<div class="rf"><div class="rf-logo">◈ DataMind AI</div><div class="rf-txt">© ${new Date().getFullYear()} DataMind AI &nbsp;·&nbsp; ${esc(settings.organisation)} &nbsp;·&nbsp; Confidential</div></div>
+
 
 <!-- S02 KEY FINDINGS -->
 <div class="pb"></div>
@@ -355,21 +355,21 @@ ${RH()}
 ${SEC('02','Key Findings')}
 <div class="cg">${kfB.slice(0,6).map((b,i)=>CARD(b,i,'','Finding')).join('')}</div>
 ${corrT}
-<div class="rf"><div class="rf-logo">◈ DataMind AI</div><div class="rf-txt">© ${new Date().getFullYear()} DataMind AI &nbsp;·&nbsp; ${esc(settings.organisation)} &nbsp;·&nbsp; Confidential</div></div>
+
 
 <!-- S03 CHARTS -->
 <div class="pb"></div>
 ${RH()}
 ${SEC('03','Charts &amp; Visualisations')}
 ${chartGrid}
-<div class="rf"><div class="rf-logo">◈ DataMind AI</div><div class="rf-txt">© ${new Date().getFullYear()} DataMind AI &nbsp;·&nbsp; ${esc(settings.organisation)} &nbsp;·&nbsp; Confidential</div></div>
+
 
 <!-- S04 STATS -->
 <div class="pb"></div>
 ${RH()}
 ${SEC('04','Statistical Summary')}
 ${statsT}
-<div class="rf"><div class="rf-logo">◈ DataMind AI</div><div class="rf-txt">© ${new Date().getFullYear()} DataMind AI &nbsp;·&nbsp; ${esc(settings.organisation)} &nbsp;·&nbsp; Confidential</div></div>
+
 
 <!-- S05 ANOMALIES -->
 <div class="pb"></div>
@@ -377,15 +377,16 @@ ${RH()}
 ${SEC('05','Anomalies &amp; Data Quality')}
 <div class="cg">${anomCards}</div>
 ${outlierT}
-<div class="rf"><div class="rf-logo">◈ DataMind AI</div><div class="rf-txt">© ${new Date().getFullYear()} DataMind AI &nbsp;·&nbsp; ${esc(settings.organisation)} &nbsp;·&nbsp; Confidential</div></div>
+
 
 <!-- S06 RECOMMENDATIONS -->
 <div class="pb"></div>
 ${RH()}
 ${SEC('06','Actionable Recommendations')}
 <div class="cg">${recB.slice(0,6).map((b,i)=>CARD(b,i,'green','Action')).join('')}</div>
-<div class="rf"><div class="rf-logo">◈ DataMind AI</div><div class="rf-txt">© ${new Date().getFullYear()} DataMind AI &nbsp;·&nbsp; ${esc(settings.organisation)} &nbsp;·&nbsp; Confidential</div></div>
 
+
+<div class="rf"><div class="rf-logo">◈ DataMind AI</div><div class="rf-txt">© ${new Date().getFullYear()} DataMind AI &nbsp;·&nbsp; ${esc(settings.organisation)} &nbsp;·&nbsp; Confidential</div></div>
 </body></html>`
 
   const win = window.open('','_blank','width=1050,height=800')
